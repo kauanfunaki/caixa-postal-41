@@ -10,19 +10,32 @@ from typing import Dict, List, Tuple
 
 import yaml
 
-_ROOT = Path(__file__).parent.parent
+_ROOT   = Path(__file__).parent.parent
+_STATIC = Path(__file__).parent / "static" / "logo.png"
 
 # ── Paleta ──────────────────────────────────────────────────────────────────
-_NAVY   = "#0D1117"
-_BLUE   = "#3A7BD5"
-_BLUE_L = "#EBF2FF"
-_WHITE  = "#FFFFFF"
-_GRAY_1 = "#111827"
-_GRAY_2 = "#374151"
-_GRAY_3 = "#6B7280"
-_GRAY_4 = "#9CA3AF"
-_BORDER = "#E5E7EB"
-_ROW_ODD= "#F9FAFB"
+_NAVY     = "#0D1117"
+_NAVY_2   = "#161D2A"
+_BLUE     = "#3A7BD5"
+_BLUE_D   = "#2E63AC"
+_BLUE_L   = "#EBF2FF"
+_BLUE_LT  = "#F0F5FF"
+_WHITE    = "#FFFFFF"
+_BODY_BG  = "#F4F6FA"
+_TEXT_1   = "#0D1117"
+_TEXT_2   = "#374151"
+_TEXT_3   = "#6B7280"
+_TEXT_4   = "#9CA3AF"
+_BORDER   = "#E2E8F0"
+_ROW_ALT  = "#F8FAFC"
+_GREEN    = "#059669"
+_GREEN_L  = "#D1FAE5"
+
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+def _plural(n: int, s: str, p: str) -> str:
+    return s if n == 1 else p
 
 
 def _cfg() -> dict:
@@ -48,68 +61,93 @@ def smtp_configurado() -> bool:
     return bool(cfg.get("smtp_user") and cfg.get("smtp_password") and cfg.get("remetente_email"))
 
 
-# ── Helpers ─────────────────────────────────────────────────────────────────
-
-def _plural(n: int, singular: str, plural: str) -> str:
-    return singular if n == 1 else plural
-
-def _th(label: str) -> str:
-    return (f'<th style="padding:9px 14px;text-align:left;font-family:Arial,sans-serif;'
-            f'font-size:10px;font-weight:700;color:{_GRAY_3};text-transform:uppercase;'
-            f'letter-spacing:.06em;background:{_ROW_ODD};border-bottom:1px solid {_BORDER};">'
-            f'{label}</th>')
-
-def _td(content: str, mono: bool = False, muted: bool = False) -> str:
-    color  = _GRAY_3 if muted else _GRAY_1
-    family = "Courier New, monospace" if mono else "Arial,sans-serif"
-    size   = "11px" if mono else "13px"
-    return (f'<td style="padding:10px 14px;font-family:{family};font-size:{size};'
-            f'color:{color};border-bottom:1px solid {_BORDER};vertical-align:top;">'
-            f'{content}</td>')
+def _logo_b64() -> str:
+    """Retorna a logo em base64 para embutir no e-mail."""
+    try:
+        import base64
+        return base64.b64encode(_STATIC.read_bytes()).decode()
+    except Exception:
+        return ""
 
 
 # ── Tabelas ──────────────────────────────────────────────────────────────────
 
+def _th(label: str, width: str = "") -> str:
+    w = f'width="{width}" ' if width else ""
+    return (
+        f'<th {w}style="padding:8px 16px;text-align:left;font-family:\'Trebuchet MS\',Arial,sans-serif;'
+        f'font-size:9px;font-weight:700;color:{_TEXT_3};text-transform:uppercase;'
+        f'letter-spacing:.1em;background:{_ROW_ALT};border-bottom:1px solid {_BORDER};">'
+        f'{label}</th>'
+    )
+
+
+def _td_val(content: str, mono: bool = False, muted: bool = False, wrap: bool = False) -> str:
+    color  = _TEXT_3 if muted else _TEXT_2
+    family = "'Courier New',monospace" if mono else "'Trebuchet MS',Arial,sans-serif"
+    size   = "11px" if mono else "13px"
+    ws     = "" if wrap else "white-space:nowrap;"
+    return (
+        f'<td style="padding:11px 16px;font-family:{family};font-size:{size};'
+        f'color:{color};border-bottom:1px solid {_BORDER};vertical-align:top;{ws}">'
+        f'{content}</td>'
+    )
+
+
+def _section_header(icon: str, title: str, count: int) -> str:
+    label = _plural(count, "nova", "novas")
+    return f"""
+    <tr>
+      <td colspan="10" style="padding:28px 32px 0;">
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td style="padding-bottom:10px;border-bottom:2px solid {_BLUE};">
+              <table cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="font-family:Georgia,serif;font-size:14px;font-weight:700;
+                             color:{_TEXT_1};letter-spacing:-.01em;vertical-align:middle;">
+                    {icon}&nbsp; {title}
+                  </td>
+                  <td style="padding-left:10px;vertical-align:middle;">
+                    <span style="display:inline-block;background:{_BLUE_L};color:{_BLUE};
+                                 font-family:'Trebuchet MS',Arial,sans-serif;
+                                 font-size:10px;font-weight:700;letter-spacing:.04em;
+                                 padding:3px 9px;border-radius:20px;text-transform:uppercase;">
+                      {count} {label}
+                    </span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>"""
+
+
 def _tabela_ecac(msgs: List[Dict]) -> str:
     if not msgs:
         return ""
-    n = len(msgs)
     linhas = ""
     for i, m in enumerate(msgs):
         data = m["data_envio"].strftime("%d/%m/%Y") if m.get("data_envio") else "—"
-        bg = f' style="background:{_ROW_ODD};"' if i % 2 == 0 else ""
-        linhas += (f"<tr{bg}>"
-                   + _td(m["cnpj_fmt"], mono=True)
-                   + _td(m.get("razao_social") or "—")
-                   + _td(m.get("remetente") or "—", muted=True)
-                   + _td(m.get("assunto") or "—")
-                   + _td(data, muted=True)
-                   + "</tr>")
-
+        bg = f'background:{_ROW_ALT};' if i % 2 else ""
+        linhas += (
+            f'<tr style="{bg}">'
+            + _td_val(m["cnpj_fmt"], mono=True)
+            + _td_val(m.get("razao_social") or "—")
+            + _td_val(m.get("remetente") or "—", muted=True)
+            + _td_val(m.get("assunto") or "—", wrap=True)
+            + _td_val(data, muted=True)
+            + "</tr>"
+        )
     return f"""
-    <!-- Seção e-CAC -->
-    <tr><td style="padding:24px 32px 0;">
-      <table width="100%" cellpadding="0" cellspacing="0">
-        <tr>
-          <td style="padding-bottom:12px;border-bottom:2px solid {_BLUE};">
-            <span style="font-family:Arial,sans-serif;font-size:13px;font-weight:700;
-                         color:{_GRAY_1};letter-spacing:-.01em;">
-              &#9993;&nbsp; e-CAC — Caixa Postal
-            </span>
-            <span style="margin-left:8px;background:{_BLUE_L};color:{_BLUE};
-                         font-family:Arial,sans-serif;font-size:11px;font-weight:700;
-                         padding:2px 8px;border-radius:10px;">
-              {n} {_plural(n, 'nova', 'novas')}
-            </span>
-          </td>
-        </tr>
-      </table>
-    </td></tr>
-    <tr><td style="padding:12px 32px 0;">
+    {_section_header("✉", "e-CAC — Caixa Postal", len(msgs))}
+    <tr><td style="padding:10px 32px 0;">
       <table width="100%" cellpadding="0" cellspacing="0"
-             style="border-collapse:collapse;border:1px solid {_BORDER};">
+             style="border-collapse:collapse;border:1px solid {_BORDER};border-radius:4px;overflow:hidden;">
         <thead>
-          <tr>{_th("CNPJ")}{_th("Empresa")}{_th("Remetente")}{_th("Assunto")}{_th("Data")}</tr>
+          <tr>{_th("CNPJ","140")}{_th("Empresa")}{_th("Remetente","120")}{_th("Assunto")}{_th("Data","88")}</tr>
         </thead>
         <tbody>{linhas}</tbody>
       </table>
@@ -119,157 +157,155 @@ def _tabela_ecac(msgs: List[Dict]) -> str:
 def _tabela_regularize(msgs: List[Dict]) -> str:
     if not msgs:
         return ""
-    n = len(msgs)
     linhas = ""
     for i, m in enumerate(msgs):
         data = m["data_mensagem"].strftime("%d/%m/%Y %H:%M") if m.get("data_mensagem") else "—"
-        bg = f' style="background:{_ROW_ODD};"' if i % 2 == 0 else ""
-        linhas += (f"<tr{bg}>"
-                   + _td(m["cnpj_fmt"], mono=True)
-                   + _td(m.get("razao_social") or "—")
-                   + _td(data, muted=True)
-                   + _td(m.get("assunto") or "—")
-                   + "</tr>")
-
+        bg = f'background:{_ROW_ALT};' if i % 2 else ""
+        linhas += (
+            f'<tr style="{bg}">'
+            + _td_val(m["cnpj_fmt"], mono=True)
+            + _td_val(m.get("razao_social") or "—")
+            + _td_val(data, muted=True)
+            + _td_val(m.get("assunto") or "—", wrap=True)
+            + "</tr>"
+        )
     return f"""
-    <!-- Seção Regularize -->
-    <tr><td style="padding:28px 32px 0;">
-      <table width="100%" cellpadding="0" cellspacing="0">
-        <tr>
-          <td style="padding-bottom:12px;border-bottom:2px solid {_BLUE};">
-            <span style="font-family:Arial,sans-serif;font-size:13px;font-weight:700;
-                         color:{_GRAY_1};letter-spacing:-.01em;">
-              &#10003;&nbsp; Regularize PGFN
-            </span>
-            <span style="margin-left:8px;background:{_BLUE_L};color:{_BLUE};
-                         font-family:Arial,sans-serif;font-size:11px;font-weight:700;
-                         padding:2px 8px;border-radius:10px;">
-              {n} {_plural(n, 'nova', 'novas')}
-            </span>
-          </td>
-        </tr>
-      </table>
-    </td></tr>
-    <tr><td style="padding:12px 32px 0;">
+    {_section_header("✓", "Regularize PGFN", len(msgs))}
+    <tr><td style="padding:10px 32px 0;">
       <table width="100%" cellpadding="0" cellspacing="0"
-             style="border-collapse:collapse;border:1px solid {_BORDER};">
+             style="border-collapse:collapse;border:1px solid {_BORDER};border-radius:4px;overflow:hidden;">
         <thead>
-          <tr>{_th("CNPJ")}{_th("Empresa")}{_th("Data")}{_th("Assunto")}</tr>
+          <tr>{_th("CNPJ","140")}{_th("Empresa")}{_th("Data","120")}{_th("Assunto")}</tr>
         </thead>
         <tbody>{linhas}</tbody>
       </table>
     </td></tr>"""
 
 
-# ── Montagem do e-mail ───────────────────────────────────────────────────────
+# ── HTML principal ────────────────────────────────────────────────────────────
 
 def montar_html(ecac: List[Dict], regularize: List[Dict]) -> str:
-    total = len(ecac) + len(regularize)
-    n_ecac, n_reg = len(ecac), len(regularize)
+    total   = len(ecac) + len(regularize)
+    n_ecac  = len(ecac)
+    n_reg   = len(regularize)
+    logo_b64 = _logo_b64()
+    logo_src = f"data:image/png;base64,{logo_b64}" if logo_b64 else ""
 
-    stat_ecac = f"""
-      <td width="50%" style="padding:0 6px 0 0;">
-        <table width="100%" cellpadding="0" cellspacing="0"
-               style="background:{_BLUE_L};border-radius:8px;">
-          <tr>
-            <td style="padding:14px 18px;">
-              <div style="font-family:Arial,sans-serif;font-size:22px;font-weight:700;
-                          color:{_BLUE};line-height:1;">{n_ecac}</div>
-              <div style="font-family:Arial,sans-serif;font-size:11px;color:{_BLUE};
-                          margin-top:3px;font-weight:600;">
-                {_plural(n_ecac, 'mensagem', 'mensagens')} no e-CAC
-              </div>
-            </td>
-          </tr>
-        </table>
-      </td>""" if n_ecac else ""
+    # Cards de contagem
+    def _stat_card(n: int, label: str) -> str:
+        return f"""
+        <td style="padding:0 6px;">
+          <table cellpadding="0" cellspacing="0" width="100%"
+                 style="background:{_WHITE};border:1px solid {_BORDER};border-radius:8px;">
+            <tr>
+              <td style="padding:16px 20px;">
+                <div style="font-family:Georgia,serif;font-size:32px;font-weight:700;
+                            color:{_BLUE};line-height:1;letter-spacing:-.02em;">{n}</div>
+                <div style="font-family:'Trebuchet MS',Arial,sans-serif;font-size:11px;
+                            font-weight:600;color:{_TEXT_3};margin-top:5px;
+                            text-transform:uppercase;letter-spacing:.06em;">{label}</div>
+              </td>
+            </tr>
+          </table>
+        </td>"""
 
-    stat_reg = f"""
-      <td width="50%" style="padding:0 0 0 6px;">
-        <table width="100%" cellpadding="0" cellspacing="0"
-               style="background:{_BLUE_L};border-radius:8px;">
-          <tr>
-            <td style="padding:14px 18px;">
-              <div style="font-family:Arial,sans-serif;font-size:22px;font-weight:700;
-                          color:{_BLUE};line-height:1;">{n_reg}</div>
-              <div style="font-family:Arial,sans-serif;font-size:11px;color:{_BLUE};
-                          margin-top:3px;font-weight:600;">
-                {_plural(n_reg, 'mensagem', 'mensagens')} no Regularize
-              </div>
-            </td>
-          </tr>
-        </table>
-      </td>""" if n_reg else ""
+    stats = ""
+    if n_ecac:   stats += _stat_card(n_ecac, _plural(n_ecac, "mensagem", "mensagens") + " no e-CAC")
+    if n_reg:    stats += _stat_card(n_reg,  _plural(n_reg,  "mensagem", "mensagens") + " no Regularize")
+
+    logo_html = (
+        f'<img src="{logo_src}" width="32" height="28" alt="41 Tech" '
+        f'style="display:block;border:0;mix-blend-mode:screen;" />'
+        if logo_src else
+        f'<div style="font-family:Georgia,serif;font-size:14px;font-weight:900;'
+        f'color:{_WHITE};">41</div>'
+    )
 
     return f"""<!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" xmlns="http://www.w3.org/1999/xhtml">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="x-apple-disable-message-reformatting">
   <title>Caixa Postal 41</title>
 </head>
-<body style="margin:0;padding:0;background:#F0F2F5;">
-<table width="100%" cellpadding="0" cellspacing="0" role="presentation">
-<tr><td style="padding:32px 16px;">
+<body style="margin:0;padding:0;background:{_BODY_BG};-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
+<!--[if mso]><table width="100%"><tr><td><![endif]-->
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation"
+       style="border-collapse:collapse;background:{_BODY_BG};">
+<tr><td align="center" style="padding:32px 16px;">
 
-  <!-- Container -->
-  <table width="620" cellpadding="0" cellspacing="0" role="presentation"
-         style="margin:0 auto;max-width:620px;">
+  <table width="640" cellpadding="0" cellspacing="0" role="presentation"
+         style="max-width:640px;width:100%;border-collapse:collapse;">
 
-    <!-- ── Header ── -->
+    <!-- ══ HEADER ══ -->
     <tr>
-      <td style="background:{_NAVY};border-radius:12px 12px 0 0;padding:0;">
+      <td style="background:{_NAVY};border-radius:12px 12px 0 0;padding:0;overflow:hidden;">
         <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+
+          <!-- Logo bar -->
           <tr>
-            <td style="padding:24px 32px 20px;">
-              <!-- Logo row -->
+            <td style="padding:22px 32px 18px;">
               <table cellpadding="0" cellspacing="0" role="presentation">
                 <tr>
                   <td style="vertical-align:middle;">
-                    <div style="width:36px;height:36px;background:{_BLUE};border-radius:8px;
-                                display:inline-block;text-align:center;line-height:36px;
-                                font-family:Arial,sans-serif;font-size:14px;font-weight:900;
-                                color:#fff;letter-spacing:-.02em;">41</div>
-                  </td>
-                  <td style="padding-left:10px;vertical-align:middle;">
-                    <div style="font-family:Arial,sans-serif;font-size:15px;font-weight:700;
-                                color:#E8EAF0;letter-spacing:-.01em;line-height:1.2;">
-                      Caixa Postal 41
-                    </div>
-                    <div style="font-family:Arial,sans-serif;font-size:11px;font-weight:600;
-                                color:{_BLUE};letter-spacing:.04em;margin-top:1px;">
-                      41 TECH CONTABILIDADE
-                    </div>
+                    <table cellpadding="0" cellspacing="0" role="presentation">
+                      <tr>
+                        <td style="background:{_BLUE};border-radius:8px;
+                                   width:40px;height:40px;text-align:center;
+                                   vertical-align:middle;padding:4px;">
+                          {logo_html}
+                        </td>
+                        <td style="padding-left:12px;vertical-align:middle;">
+                          <div style="font-family:Georgia,serif;font-size:16px;
+                                      font-weight:700;color:{_WHITE};
+                                      letter-spacing:-.02em;line-height:1.1;">
+                            Caixa Postal 41
+                          </div>
+                          <div style="font-family:'Trebuchet MS',Arial,sans-serif;
+                                      font-size:10px;font-weight:700;color:{_BLUE};
+                                      letter-spacing:.1em;margin-top:3px;
+                                      text-transform:uppercase;">
+                            41 Tech Contabilidade
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
-          <!-- Linha divisória azul -->
+
+          <!-- Divider -->
+          <tr><td style="height:1px;background:rgba(58,123,213,.35);font-size:0;">&nbsp;</td></tr>
+
+          <!-- Headline -->
           <tr>
-            <td style="background:{_BLUE};height:3px;font-size:0;line-height:0;">&nbsp;</td>
-          </tr>
-          <!-- Subtítulo no header -->
-          <tr>
-            <td style="padding:16px 32px 20px;">
+            <td style="padding:20px 32px 24px;">
               <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
                 <tr>
-                  <td>
-                    <div style="font-family:Arial,sans-serif;font-size:18px;font-weight:700;
-                                color:#FFFFFF;line-height:1.2;">
-                      Novas mensagens detectadas
+                  <td style="vertical-align:middle;">
+                    <div style="font-family:Georgia,serif;font-size:22px;font-weight:700;
+                                color:{_WHITE};line-height:1.2;letter-spacing:-.02em;">
+                      Novas mensagens<br>detectadas
                     </div>
-                    <div style="font-family:Arial,sans-serif;font-size:13px;color:#8892AA;
-                                margin-top:4px;">
-                      {total} {_plural(total, 'mensagem nova', 'mensagens novas')} encontrada{'s' if total != 1 else ''}
+                    <div style="font-family:'Trebuchet MS',Arial,sans-serif;font-size:12px;
+                                color:rgba(255,255,255,.45);margin-top:6px;">
+                      {total} {_plural(total, "mensagem nova encontrada", "mensagens novas encontradas")}
                     </div>
                   </td>
-                  <td style="text-align:right;vertical-align:middle;">
-                    <div style="display:inline-block;background:{_BLUE};color:#fff;
-                                font-family:Arial,sans-serif;font-size:22px;font-weight:900;
-                                padding:8px 18px;border-radius:10px;line-height:1;">
-                      {total}
+                  <td style="vertical-align:middle;text-align:right;padding-left:16px;">
+                    <div style="display:inline-block;background:{_BLUE};border-radius:10px;
+                                padding:10px 20px;text-align:center;">
+                      <div style="font-family:Georgia,serif;font-size:40px;font-weight:700;
+                                  color:{_WHITE};line-height:1;letter-spacing:-.03em;">{total}</div>
+                      <div style="font-family:'Trebuchet MS',Arial,sans-serif;font-size:9px;
+                                  color:rgba(255,255,255,.7);text-transform:uppercase;
+                                  letter-spacing:.1em;margin-top:4px;">
+                        {_plural(total, "mensagem", "mensagens")}
+                      </div>
                     </div>
                   </td>
                 </tr>
@@ -280,37 +316,38 @@ def montar_html(ecac: List[Dict], regularize: List[Dict]) -> str:
       </td>
     </tr>
 
-    <!-- ── Stats bar ── -->
+    <!-- ══ STATS CARDS ══ -->
     <tr>
-      <td style="background:{_WHITE};padding:20px 32px;border-left:1px solid {_BORDER};
-                 border-right:1px solid {_BORDER};">
+      <td style="background:{_BODY_BG};padding:16px 26px;">
         <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
-          <tr>{stat_ecac}{stat_reg}</tr>
+          <tr>{stats}</tr>
         </table>
       </td>
     </tr>
 
-    <!-- ── Tabelas ── -->
-    <table width="100%" cellpadding="0" cellspacing="0" role="presentation"
-           style="background:{_WHITE};border-left:1px solid {_BORDER};
-                  border-right:1px solid {_BORDER};">
-      {_tabela_ecac(ecac)}
-      {_tabela_regularize(regularize)}
-      <tr><td style="height:28px;font-size:0;">&nbsp;</td></tr>
-    </table>
-
-    <!-- ── Footer ── -->
+    <!-- ══ BODY ══ -->
     <tr>
-      <td style="background:#F9FAFB;padding:18px 32px;border-radius:0 0 12px 12px;
-                 border:1px solid {_BORDER};border-top:none;">
+      <td style="background:{_WHITE};border:1px solid {_BORDER};border-top:none;padding-bottom:8px;">
+        <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+          {_tabela_ecac(ecac)}
+          {_tabela_regularize(regularize)}
+          <tr><td style="height:24px;font-size:0;">&nbsp;</td></tr>
+        </table>
+      </td>
+    </tr>
+
+    <!-- ══ FOOTER ══ -->
+    <tr>
+      <td style="background:{_NAVY_2};border-radius:0 0 12px 12px;padding:20px 32px;">
         <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
           <tr>
-            <td style="border-top:1px solid {_BORDER};padding-top:16px;">
-              <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;
-                        color:{_GRAY_4};text-align:center;line-height:1.6;">
-                Enviado automaticamente pelo <strong style="color:{_GRAY_3};">Caixa Postal 41</strong>
-                &nbsp;&mdash;&nbsp; 41 Tech Contabilidade<br>
-                Para cancelar notificações, acesse o painel e desative seu e-mail.
+            <td>
+              <p style="margin:0;font-family:'Trebuchet MS',Arial,sans-serif;font-size:11px;
+                        color:rgba(255,255,255,.3);line-height:1.7;">
+                Enviado automaticamente pelo
+                <span style="color:rgba(255,255,255,.55);font-weight:600;">Caixa Postal 41</span>
+                &mdash; 41 Tech Contabilidade.<br>
+                Para cancelar notificações, acesse o painel e desative seu e-mail na aba Notificações.
               </p>
             </td>
           </tr>
@@ -321,13 +358,16 @@ def montar_html(ecac: List[Dict], regularize: List[Dict]) -> str:
   </table>
 </td></tr>
 </table>
+<!--[if mso]></td></tr></table><![endif]-->
 </body>
 </html>"""
 
 
 # ── Envio ────────────────────────────────────────────────────────────────────
 
-def enviar_notificacao(destinatarios: List[Dict], ecac: List[Dict], regularize: List[Dict]) -> Tuple[int, str]:
+def enviar_notificacao(
+    destinatarios: List[Dict], ecac: List[Dict], regularize: List[Dict]
+) -> Tuple[int, str]:
     """Envia e-mail de notificação. Retorna (qtd_enviados, erro_msg)."""
     cfg = _cfg()
     if not cfg.get("smtp_user") or not cfg.get("remetente_email"):
@@ -343,7 +383,8 @@ def enviar_notificacao(destinatarios: List[Dict], ecac: List[Dict], regularize: 
 
     remetente = f"{cfg.get('remetente_nome', 'Caixa Postal 41')} <{cfg['remetente_email']}>"
     assunto   = (f"Caixa Postal 41 — {total} "
-                 f"{_plural(total, 'nova mensagem', 'novas mensagens')} detectada{'s' if total != 1 else ''}")
+                 f"{_plural(total, 'nova mensagem', 'novas mensagens')} "
+                 f"detectada{'s' if total != 1 else ''}")
     html = montar_html(ecac, regularize)
 
     try:
@@ -357,8 +398,9 @@ def enviar_notificacao(destinatarios: List[Dict], ecac: List[Dict], regularize: 
             msg = MIMEMultipart("alternative")
             msg["Subject"] = assunto
             msg["From"]    = remetente
-            msg["To"]      = (f"{dest['nome']} <{dest['email']}>"
-                               if dest.get("nome") else dest["email"])
+            msg["To"]      = (
+                f"{dest['nome']} <{dest['email']}>" if dest.get("nome") else dest["email"]
+            )
             msg.attach(MIMEText(html, "html", "utf-8"))
             server.sendmail(cfg["remetente_email"], dest["email"], msg.as_string())
             enviados += 1
