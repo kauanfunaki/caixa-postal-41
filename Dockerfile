@@ -10,6 +10,6 @@ COPY app/ ./app/
 # config.yaml é opcional — use variáveis de ambiente no EasyPanel
 COPY config.yaml* ./
 
-EXPOSE 8765
+EXPOSE 80
 
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8765"]
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80"]
