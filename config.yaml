@@ -1,0 +1,15 @@
+database:
+  host: "vps.41tech.cloud"
+  port: 3309
+  user: "root"
+  password: "437dd02637569c6b9d70"
+  database: "ecac_automation"
+
+email:
+  smtp_host: "mail.41contabil.com.br"
+  smtp_port: 587
+  smtp_user: ""        # preencha com o usuário SMTP
+  smtp_password: ""    # preencha com a senha SMTP
+  remetente_nome: "Caixa Postal 41"
+  remetente_email: "" # preencha com o e-mail remetente
+  use_tls: true

@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}CNPJs — Caixa Postal 41{% endblock %}
+{% block page_title %}CNPJs{% endblock %}
+
+{% block content %}
+<div x-data="{ editando: null, editRS: '', confirmDelete: null }">
+
+  {% if msg %}
+  <div class="alert alert-success" style="margin-bottom:16px;">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+    {{ msg }}
+  </div>
+  {% endif %}
+  {% if erro %}
+  <div class="alert alert-error" style="margin-bottom:16px;">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+    {{ erro }}
+  </div>
+  {% endif %}
+
+  <div style="display:grid; grid-template-columns:1fr 260px; gap:16px; align-items:start;">
+
+    <!-- Tabela de CNPJs -->
+    <div class="card" style="overflow:hidden;">
+      <div class="card-header">
+        <span class="card-title">CNPJs cadastrados</span>
+        <span class="card-count">{{ cnpjs|length }} registro{{ 's' if cnpjs|length != 1 else '' }}</span>
+      </div>
+
+      {% if cnpjs %}
+      <div style="overflow-x:auto;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>CNPJ</th>
+              <th>Razão Social</th>
+              <th>Status</th>
+              <th>Atualizado</th>
+              <th style="width:64px;"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in cnpjs %}
+            <tr :class="editando === '{{ c.cnpj }}' ? 'editing' : ''">
+              <td><span class="mono">{{ c.cnpj_fmt }}</span></td>
+
+              <td style="max-width:220px;">
+                <template x-if="editando === '{{ c.cnpj }}'">
+                  <form method="post" action="/configuracoes/{{ c.cnpj }}/editar" style="display:flex; gap:6px; align-items:center;">
+                    <input type="text" name="razao_social" :value="editRS"
+                           @input="editRS = $event.target.value"
+                           style="flex:1; height:28px; padding:0 8px; font-size:13px; border:1px solid var(--accent); border-radius:5px; background:var(--surface); color:var(--text); outline:none;">
+                    <button type="submit" class="btn btn-primary" style="height:28px; padding:0 10px; font-size:12px;">Ok</button>
+                    <button type="button" @click="editando = null" class="btn btn-ghost" style="height:28px; padding:0 8px; font-size:12px;">✕</button>
+                  </form>
+                </template>
+                <template x-if="editando !== '{{ c.cnpj }}'">
+                  <span class="truncate" style="display:block;" title="{{ c.razao_social }}">{{ c.razao_social or '—' }}</span>
+                </template>
+              </td>
+
+              <td>
+                <form method="post" action="/configuracoes/{{ c.cnpj }}/toggle">
+                  <input type="hidden" name="ativo" value="{{ '0' if c.ativo else '1' }}">
+                  <button type="submit" class="badge {{ 'badge-green' if c.ativo else 'badge-gray' }}" style="border:none; cursor:pointer;">
+                    <span class="badge-dot" style="background:{{ 'var(--green)' if c.ativo else 'var(--gray)' }};"></span>
+                    {{ 'Ativo' if c.ativo else 'Inativo' }}
+                  </button>
+                </form>
+              </td>
+
+              <td style="font-size:12px; color:var(--text-3); white-space:nowrap;">
+                {% if c.atualizado_em %}{{ c.atualizado_em.strftime('%d/%m/%Y') }}{% else %}—{% endif %}
+              </td>
+
+              <td>
+                <div style="display:flex; gap:2px; justify-content:flex-end;">
+                  <button type="button" class="icon-btn"
+                          @click="editando = '{{ c.cnpj }}'; editRS = '{{ c.razao_social | replace("'", "\\'") }}'"
+                          title="Editar razão social">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                  </button>
+                  <button type="button" class="icon-btn danger"
+                          @click="confirmDelete = '{{ c.cnpj }}'"
+                          title="Remover">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5"/>
+        </svg>
+        <p>Nenhum CNPJ cadastrado ainda</p>
+        <span>Adicione CNPJs pelo painel ao lado</span>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Painel direito -->
+    <div style="display:flex; flex-direction:column; gap:12px;">
+
+      <!-- Adicionar -->
+      <div class="card" style="padding:16px;">
+        <p style="font-size:13px; font-weight:600; color:var(--text); margin-bottom:12px;">Adicionar CNPJ</p>
+        <form method="post" action="/configuracoes/adicionar" style="display:flex; flex-direction:column; gap:10px;">
+          <div>
+            <label class="form-label">CNPJ *</label>
+            <input type="text" name="cnpj" class="form-input" placeholder="00.000.000/0001-00" required>
+          </div>
+          <div>
+            <label class="form-label">Razão Social</label>
+            <input type="text" name="razao_social" class="form-input" placeholder="Opcional">
+          </div>
+          <button type="submit" class="btn btn-primary" style="justify-content:center;">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Adicionar
+          </button>
+        </form>
+      </div>
+
+      <!-- Importar Excel -->
+      <div class="card" style="padding:16px;">
+        <p style="font-size:13px; font-weight:600; color:var(--text); margin-bottom:4px;">Importar Excel</p>
+        <p style="font-size:12px; color:var(--text-3); margin-bottom:12px; line-height:1.5;">
+          Planilha com coluna <code style="font-family:var(--font-mono); font-size:11px; background:var(--surface-2); padding:1px 5px; border-radius:3px;">cnpj</code>
+          e opcionalmente <code style="font-family:var(--font-mono); font-size:11px; background:var(--surface-2); padding:1px 5px; border-radius:3px;">razao_social</code>
+        </p>
+        <form method="post" action="/configuracoes/importar" enctype="multipart/form-data" style="display:flex; flex-direction:column; gap:10px;">
+          <input type="file" name="arquivo" accept=".xlsx,.xls" required
+                 style="font-size:12px; color:var(--text-2); width:100%;">
+          <button type="submit" class="btn btn-secondary" style="justify-content:center;">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+            </svg>
+            Importar
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Modal confirmação exclusão -->
+  <div x-show="confirmDelete !== null" x-cloak class="modal-overlay" @click.self="confirmDelete = null">
+    <div class="modal">
+      <div class="modal-icon" style="background:var(--red-bg);">
+        <svg fill="none" stroke="var(--red)" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+        </svg>
+      </div>
+      <p class="modal-title">Remover CNPJ</p>
+      <p class="modal-body">
+        Tem certeza? O CNPJ será removido do cadastro.<br>
+        As mensagens salvas no banco <strong>não serão apagadas</strong>.
+      </p>
+      <div class="modal-actions">
+        <button @click="confirmDelete = null" class="btn btn-secondary">Cancelar</button>
+        <form :action="'/configuracoes/' + confirmDelete + '/deletar'" method="post" style="flex:1;">
+          <button type="submit" class="btn btn-danger" style="width:100%; justify-content:center;">Remover</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

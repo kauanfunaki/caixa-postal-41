@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+{% block title %}Notificações — Caixa Postal 41{% endblock %}
+{% block page_title %}Notificações por E-mail{% endblock %}
+
+{% block content %}
+<div x-data="{
+  verificando: false,
+  resultado: null,
+  async verificar() {
+    this.verificando = true;
+    this.resultado = null;
+    try {
+      const r = await fetch('/notificacoes/verificar', { method: 'POST' });
+      this.resultado = await r.json();
+    } catch(e) {
+      this.resultado = { ok: false, erro: 'Erro de conexão.' };
+    }
+    this.verificando = false;
+  },
+  confirmDelete: null
+}">
+
+  {% if msg %}
+  <div class="alert alert-success">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+    {{ msg }}
+  </div>
+  {% endif %}
+  {% if erro %}
+  <div class="alert alert-error">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+    {{ erro }}
+  </div>
+  {% endif %}
+
+  <div style="display:grid; grid-template-columns:1fr 280px; gap:16px; align-items:start;">
+
+    <!-- Destinatários -->
+    <div style="display:flex; flex-direction:column; gap:16px;">
+
+      <!-- Verificação manual -->
+      <div class="card" style="padding:16px;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+          <div>
+            <p style="font-size:13px; font-weight:600; color:var(--text); margin-bottom:4px;">Verificar novidades agora</p>
+            <p style="font-size:12px; color:var(--text-3); line-height:1.5;">
+              Compara as mensagens do e-CAC e Regularize com o log de envios anteriores
+              e dispara e-mails para os destinatários ativos.
+            </p>
+            {% if ultima_verificacao %}
+            <p style="font-size:12px; color:var(--text-3); margin-top:6px;">
+              Última verificação: <span style="color:var(--text-2); font-weight:500;">{{ ultima_verificacao }}</span>
+            </p>
+            {% endif %}
+            {% if pendentes.ecac > 0 or pendentes.regularize > 0 %}
+            <div style="display:flex; gap:8px; margin-top:8px;">
+              {% if pendentes.ecac > 0 %}
+              <span class="badge badge-yellow">
+                <span class="badge-dot" style="background:var(--yellow);"></span>
+                {{ pendentes.ecac }} e-CAC pendente{{ 's' if pendentes.ecac != 1 else '' }}
+              </span>
+              {% endif %}
+              {% if pendentes.regularize > 0 %}
+              <span class="badge badge-yellow">
+                <span class="badge-dot" style="background:var(--yellow);"></span>
+                {{ pendentes.regularize }} Regularize pendente{{ 's' if pendentes.regularize != 1 else '' }}
+              </span>
+              {% endif %}
+            </div>
+            {% endif %}
+          </div>
+          <button @click="verificar()"
+                  :disabled="verificando"
+                  class="btn btn-primary"
+                  style="flex-shrink:0; min-width:140px; justify-content:center;">
+            <template x-if="!verificando">
+              <span style="display:flex; align-items:center; gap:6px;">
+                <svg style="width:14px;height:14px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                </svg>
+                Verificar agora
+              </span>
+            </template>
+            <template x-if="verificando">
+              <span style="display:flex; align-items:center; gap:8px;">
+                <svg style="width:14px;height:14px; animation:spin .8s linear infinite;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                Verificando…
+              </span>
+            </template>
+          </button>
+        </div>
+
+        <!-- Resultado da verificação -->
+        <template x-if="resultado">
+          <div style="margin-top:14px;">
+            <div :class="resultado.ok ? 'alert alert-success' : 'alert alert-error'">
+              <svg x-show="resultado.ok" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              <svg x-show="!resultado.ok" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+              </svg>
+              <span x-text="resultado.msg || resultado.erro"></span>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- Lista de destinatários -->
+      <div class="card" style="overflow:hidden;">
+        <div class="card-header">
+          <span class="card-title">Destinatários</span>
+          <span class="card-count">{{ destinatarios|length }} cadastrado{{ 's' if destinatarios|length != 1 else '' }}</span>
+        </div>
+
+        {% if destinatarios %}
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>E-mail</th>
+              <th style="width:90px;">Status</th>
+              <th style="width:48px;"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for d in destinatarios %}
+            <tr>
+              <td style="font-weight:500;">{{ d.nome or '—' }}</td>
+              <td>
+                <span class="mono" style="font-size:12px;">{{ d.email }}</span>
+              </td>
+              <td>
+                <form method="post" action="/notificacoes/{{ d.id }}/toggle">
+                  <input type="hidden" name="ativo" value="{{ '0' if d.ativo else '1' }}">
+                  <button type="submit" class="badge {{ 'badge-green' if d.ativo else 'badge-gray' }}" style="border:none; cursor:pointer;">
+                    <span class="badge-dot" style="background:{{ 'var(--green)' if d.ativo else 'var(--gray)' }};"></span>
+                    {{ 'Ativo' if d.ativo else 'Pausado' }}
+                  </button>
+                </form>
+              </td>
+              <td>
+                <button type="button" class="icon-btn danger"
+                        @click="confirmDelete = {{ d.id }}"
+                        title="Remover">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                </button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+          </svg>
+          <p>Nenhum destinatário cadastrado</p>
+          <span>Adicione e-mails no painel ao lado</span>
+        </div>
+        {% endif %}
+      </div>
+
+    </div>
+
+    <!-- Painel direito -->
+    <div style="display:flex; flex-direction:column; gap:12px;">
+
+      <!-- Adicionar destinatário -->
+      <div class="card" style="padding:16px;">
+        <p style="font-size:13px; font-weight:600; color:var(--text); margin-bottom:12px;">Adicionar destinatário</p>
+        <form method="post" action="/notificacoes/adicionar" style="display:flex; flex-direction:column; gap:10px;">
+          <div>
+            <label class="form-label">Nome</label>
+            <input type="text" name="nome" class="form-input" placeholder="João Silva (opcional)">
+          </div>
+          <div>
+            <label class="form-label">E-mail *</label>
+            <input type="email" name="email" class="form-input" placeholder="joao@empresa.com.br" required>
+          </div>
+          <button type="submit" class="btn btn-primary" style="justify-content:center;">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Adicionar
+          </button>
+        </form>
+      </div>
+
+      <!-- Status SMTP -->
+      <div class="card" style="padding:16px;">
+        <p style="font-size:13px; font-weight:600; color:var(--text); margin-bottom:8px;">Configuração SMTP</p>
+        {% if smtp_ok %}
+        <div style="display:flex; align-items:center; gap:8px; padding:10px 12px; background:var(--green-bg); border-radius:var(--radius-sm);">
+          <svg style="width:14px;height:14px; color:var(--green); flex-shrink:0;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+          </svg>
+          <span style="font-size:12.5px; color:var(--green); font-weight:500;">SMTP configurado</span>
+        </div>
+        {% else %}
+        <div style="display:flex; align-items:flex-start; gap:8px; padding:10px 12px; background:var(--yellow-bg); border-radius:var(--radius-sm);">
+          <svg style="width:14px;height:14px; color:var(--yellow); flex-shrink:0; margin-top:1px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+          </svg>
+          <div>
+            <p style="font-size:12.5px; color:var(--yellow); font-weight:600; margin-bottom:2px;">SMTP não configurado</p>
+            <p style="font-size:11.5px; color:var(--yellow); line-height:1.5;">
+              Preencha <code style="font-family:var(--font-mono); font-size:11px;">smtp_user</code>,
+              <code style="font-family:var(--font-mono); font-size:11px;">smtp_password</code> e
+              <code style="font-family:var(--font-mono); font-size:11px;">remetente_email</code>
+              no arquivo <code style="font-family:var(--font-mono); font-size:11px;">config.yaml</code>.
+            </p>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Modal confirmação exclusão -->
+  <div x-show="confirmDelete !== null" x-cloak class="modal-overlay" @click.self="confirmDelete = null">
+    <div class="modal">
+      <div class="modal-icon" style="background:var(--red-bg);">
+        <svg fill="none" stroke="var(--red)" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+        </svg>
+      </div>
+      <p class="modal-title">Remover destinatário</p>
+      <p class="modal-body">Este e-mail não receberá mais notificações. A ação pode ser desfeita adicionando-o novamente.</p>
+      <div class="modal-actions">
+        <button @click="confirmDelete = null" class="btn btn-secondary">Cancelar</button>
+        <form :action="'/notificacoes/' + confirmDelete + '/deletar'" method="post" style="flex:1;">
+          <button type="submit" class="btn btn-danger" style="width:100%; justify-content:center;">Remover</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+{% endblock %}

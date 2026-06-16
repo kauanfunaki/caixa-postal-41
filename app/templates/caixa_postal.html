@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}Caixa Postal — Caixa Postal 41{% endblock %}
+{% block page_title %}Caixa Postal{% endblock %}
+
+{% block content %}
+<div x-data="{
+  fonte: '{{ fonte }}',
+  switchFonte(f) {
+    this.fonte = f;
+    const url = new URL(window.location.href);
+    url.searchParams.set('fonte', f);
+    url.searchParams.delete('page');
+    window.location.href = url.toString();
+  }
+}">
+
+  <!-- Barra superior: toggle + contagem + exportar -->
+  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+    <div class="src-toggle">
+      <button class="src-btn" :class="{ active: fonte === 'ecac' }" @click="switchFonte('ecac')">
+        <svg style="width:13px;height:13px;display:inline;margin-right:5px;vertical-align:-2px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+        </svg>
+        e-CAC
+      </button>
+      <button class="src-btn" :class="{ active: fonte === 'regularize' }" @click="switchFonte('regularize')">
+        <svg style="width:13px;height:13px;display:inline;margin-right:5px;vertical-align:-2px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Regularize PGFN
+      </button>
+    </div>
+
+    <div style="display:flex; gap:8px; align-items:center;">
+      <span style="font-size:12px; color:var(--text-3);">
+        {{ total }} mensagen{{ 's' if total != 1 else '' }}
+        {% if total_pages > 1 %} · pág. {{ page }}/{{ total_pages }}{% endif %}
+      </span>
+      <a href="/caixa-postal/export?fonte={{ fonte }}&cnpj={{ cnpj_sel }}&q={{ q }}&data_ini={{ data_ini }}&data_fim={{ data_fim }}"
+         class="btn btn-secondary" style="height:30px; font-size:12px; padding:0 10px;">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+        </svg>
+        CSV
+      </a>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="card" style="margin-bottom:16px;">
+    <form id="filtros-form" method="get" action="/caixa-postal">
+      <input type="hidden" name="page" value="1">
+      <input type="hidden" id="fonte-input" name="fonte" :value="fonte">
+      <div class="filters-bar">
+        <div class="filter-group" style="flex:0 0 210px;">
+          <label class="form-label">CNPJ</label>
+          <select name="cnpj" class="form-select">
+            <option value="">Todos</option>
+            {% for c in cnpjs_lista %}
+            <option value="{{ c.cnpj }}" {{ 'selected' if c.cnpj == cnpj_sel else '' }}>
+              {{ c.cnpj_fmt }}{% if c.razao_social %} · {{ c.razao_social[:22] }}{% endif %}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="filter-group" style="flex:1; min-width:180px;">
+          <label class="form-label">Busca</label>
+          <input type="text" name="q" class="form-input"
+                 placeholder="Assunto, remetente, empresa…"
+                 value="{{ q or '' }}">
+        </div>
+
+        <div class="filter-group">
+          <label class="form-label">De</label>
+          <input type="date" name="data_ini" class="form-input" style="width:142px;" value="{{ data_ini or '' }}">
+        </div>
+        <div class="filter-group">
+          <label class="form-label">Até</label>
+          <input type="date" name="data_fim" class="form-input" style="width:142px;" value="{{ data_fim or '' }}">
+        </div>
+
+        <div style="display:flex; gap:6px; align-items:flex-end; padding-bottom:1px;">
+          <button type="submit" class="btn btn-primary">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            Filtrar
+          </button>
+          {% if cnpj_sel or q or data_ini or data_fim %}
+          <a href="/caixa-postal?fonte={{ fonte }}" class="btn btn-ghost">Limpar</a>
+          {% endif %}
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- Tabela -->
+  <div class="card" style="overflow:hidden;">
+    <div class="card-header">
+      <span class="card-title">
+        {% if fonte == 'ecac' %}Mensagens e-CAC{% else %}Mensagens Regularize PGFN{% endif %}
+      </span>
+      {% if total_pages > 1 %}
+      <span class="card-count">Página {{ page }} de {{ total_pages }}</span>
+      {% endif %}
+    </div>
+
+    {% if rows %}
+    <div style="overflow-x:auto;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>CNPJ</th>
+            <th>Empresa</th>
+            {% if fonte == 'ecac' %}
+            <th>Remetente</th>
+            <th>Assunto</th>
+            <th>Data</th>
+            <th>Tipo</th>
+            {% else %}
+            <th>Assunto</th>
+            <th>Data</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <td><span class="mono">{{ r.cnpj_fmt }}</span></td>
+            <td style="max-width:180px;" class="truncate" title="{{ r.razao_social }}">{{ r.razao_social or '—' }}</td>
+            {% if fonte == 'ecac' %}
+            <td style="max-width:160px; font-size:12.5px; color:var(--text-2);" class="truncate" title="{{ r.remetente }}">{{ r.remetente or '—' }}</td>
+            <td style="max-width:260px;" class="truncate" title="{{ r.assunto }}">{{ r.assunto or '—' }}</td>
+            <td style="white-space:nowrap; font-size:12px; color:var(--text-3);">
+              {% if r.data_envio %}{{ r.data_envio.strftime('%d/%m/%Y') }}{% else %}—{% endif %}
+            </td>
+            <td>
+              {% if r.tipo_comunicacao %}<span class="badge badge-blue">{{ r.tipo_comunicacao }}</span>{% else %}—{% endif %}
+            </td>
+            {% else %}
+            <td style="max-width:300px;" class="truncate" title="{{ r.assunto }}">{{ r.assunto or '—' }}</td>
+            <td style="white-space:nowrap; font-size:12px; color:var(--text-3);">
+              {% if r.data_mensagem %}{{ r.data_mensagem.strftime('%d/%m/%Y %H:%M') }}{% else %}—{% endif %}
+            </td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if total_pages > 1 %}
+    <div style="padding:12px 16px; border-top:1px solid var(--border);">
+      {% set base = '/caixa-postal?fonte=' ~ fonte ~ ('&cnpj=' ~ cnpj_sel if cnpj_sel else '') ~ ('&q=' ~ q if q else '') ~ ('&data_ini=' ~ data_ini if data_ini else '') ~ ('&data_fim=' ~ data_fim if data_fim else '') %}
+      <div class="pagination">
+        {% if page > 1 %}<a href="{{ base }}&page={{ page - 1 }}" class="page-btn">‹ Ant.</a>{% endif %}
+        {% for p in range([1, page - 2]|max, [total_pages + 1, page + 3]|min) %}
+        <a href="{{ base }}&page={{ p }}" class="page-btn {{ 'active' if p == page else '' }}">{{ p }}</a>
+        {% endfor %}
+        {% if page < total_pages %}<a href="{{ base }}&page={{ page + 1 }}" class="page-btn">Próx. ›</a>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+      </svg>
+      <p>Nenhuma mensagem encontrada</p>
+      <span>Tente ajustar os filtros ou aguarde a próxima execução da automação</span>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
